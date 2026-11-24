@@ -1,4 +1,4 @@
-"""The smaller commands: index, synth, verify, check, graph."""
+"""The smaller commands: index, synth, verify, check, graph, timeline."""
 
 import argparse
 import json
@@ -291,3 +291,47 @@ def graph(args, v):
         print(f"{args.write}: {len(nodes)} notes, {len(edges)} edges")
     else:
         print(text, end="")
+
+
+# ---------------------------------------------------------------- timeline
+
+PUBLISHED = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
+
+
+def mermaid_text(s):
+    """Mermaid's timeline uses `:` as its separator and has no escape for it."""
+    return re.sub(r"\s*:\s*", " - ", s).replace("%%", "").strip()
+
+
+def timeline(args, v):
+    """Reading notes in order of `published:`, as a Mermaid timeline (Obsidian
+    and GitHub both draw it) with a dated list of links underneath, because an
+    event in the diagram can't link. A section per year; notes sharing a date
+    share a period. Notes with no usable date are listed last. Links are
+    relative to synthesis/, where the note that holds this goes."""
+    dated, undated = {}, []
+    for n in V.notes_in(v, "reading"):
+        when = str(n.fields.get("published") or "").strip()
+        if PUBLISHED.match(when):
+            dated.setdefault(when, []).append(n)
+        else:
+            undated.append(n)
+    home = v.bundle / "synthesis"
+    title = args.title or f"{v.name} reading timeline"
+    out = ["```mermaid", "timeline", f"    title {mermaid_text(title)}"]
+    year = None
+    for when in sorted(dated):
+        if when[:4] != year:
+            year = when[:4]
+            out.append(f"    section {year}")
+        events = " : ".join(mermaid_text(n.title) for n in dated[when])
+        out.append(f"        {when} : {events}")
+    out += ["```", ""]
+    for when in sorted(dated):
+        out += [f"- {when} — {okf.link(v, home, n)}" for n in dated[when]]
+    if undated:
+        out += ["", "No usable `published:` (YYYY, YYYY-MM or YYYY-MM-DD):", ""]
+        out += [f"- {okf.link(v, home, n)}" for n in undated]
+        print(f"{len(undated)} of {len(undated) + sum(map(len, dated.values()))} "
+              "reading notes have no usable `published:`", file=sys.stderr)
+    print("\n".join(out))

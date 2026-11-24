@@ -27,6 +27,8 @@ would depend on it thinking the same way twice.
 | `vaultkit index` | print tags, groups, link counts and a line per note; `--write` rebuilds `index.md` |
 | `vaultkit verify NOTE` | append `{by: human:<you>, at: now}` to the note's `verified` |
 | `vaultkit check` | OKF conformance; exits 1 on errors, `--warnings` lists recommendations too |
+| `vaultkit graph` | the prerequisite graph from `requires:` as JSON; `--key` keeps key notes and what they require; `--canvas FILE` writes an Obsidian canvas |
+| `vaultkit timeline` | reading notes by `published:` as a Mermaid timeline with a dated link list |
 
 `vaultkit <command> -h` has the flags. `note` keeps every flag `tools/note` had,
 plus `--title`, `--description` and `--model`; `--harness` becomes

@@ -284,3 +284,22 @@ def test_graph_canvas_lays_levels_out_left_to_right(vlt, tmp_path):
     assert len(ids) == 3
     assert [(e["fromNode"], e["toNode"]) for e in c["edges"]] == [("reading-a", "reading-b")]
     assert all(e["fromNode"] in ids and e["toNode"] in ids for e in c["edges"])
+
+
+def test_timeline_orders_by_date_and_survives_colons(vlt, capsys):
+    for slug, when in [("a", "2025-09-11"), ("b", "2024"), ("c", "2025-09-11"), ("d", "")]:
+        run(["note", f"https://x.org/{slug}", "--slug", slug, "--title", f"T{slug}: sub"])
+        p = vlt.bundle / f"reading/{slug}.md"
+        text = p.read_text()
+        import re as _re
+        p.write_text(_re.sub(r"(?m)^published:.*$", f"published: '{when}'", text, count=1))
+    capsys.readouterr()
+    run(["timeline"])
+    out = capsys.readouterr().out
+    lines = out.splitlines()
+    assert lines[:2] == ["```mermaid", "timeline"]
+    body = [ln.strip() for ln in lines if " : " in ln]
+    assert body == ["2024 : Tb - sub", "2025-09-11 : Ta - sub : Tc - sub"]
+    assert out.index("section 2024") < out.index("section 2025")
+    assert "(../reading/a.md)" in out and "No usable `published:`" in out
+    assert "[Td: sub](../reading/d.md)" in out

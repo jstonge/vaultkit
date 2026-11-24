@@ -28,7 +28,7 @@ def main(argv=None):
         if argv[:1] == ["--version"]:
             print(__version__)
             return
-        print(__doc__.strip() + "\n\ncommands: init, note, synth, index, verify, check, graph\n"
+        print(__doc__.strip() + "\n\ncommands: init, note, synth, index, verify, check, graph, timeline\n"
               "`vaultkit <command> -h` for each.")
         return
 
@@ -77,6 +77,11 @@ def main(argv=None):
     p.add_argument("--canvas", metavar="FILE", default="",
                    help="write an Obsidian canvas to FILE (path-from-root file cards)")
     p.set_defaults(fn=commands.graph)
+
+    p = sub.add_parser("timeline", help="reading notes by publication date, as Mermaid",
+                       description=commands.timeline.__doc__)
+    p.add_argument("--title", default="", help="the diagram's title")
+    p.set_defaults(fn=commands.timeline)
 
     args = ap.parse_args(argv)
     args.fn(args, v)
