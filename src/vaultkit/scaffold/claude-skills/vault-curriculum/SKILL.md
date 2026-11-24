@@ -114,11 +114,41 @@ others require can still be the one that matters. The user says which. Set
 on a note, check what its prerequisites are: a reader following only the key
 notes still needs everything they require, which `vaultkit graph --key` shows.
 
-**5. Show the result and ask what's wrong.**
+**5. Depth and approach, last.** Two more fields, each a different question
+from the edges, so don't ask them in the same breath. Propose a value per
+note with a reason, and let the user change it:
+
+- **`depth:`** how far in the note goes. `overview` is what the thing is and
+  why it matters; `working` is enough to use it; `deep` is the mechanics or
+  the math. It describes the note, not the reader.
+- **`approach:`** whether it builds understanding or builds something.
+  `foundations` or `hands-on`, as a list if a source does both:
+  `approach: [foundations, hands-on]`.
+
+They're independent of each other and of the edges. A deep, foundational note
+can need nothing (the transformer math); a hands-on overview can come late
+(a first look at caching). Don't infer one from another, and don't set either
+from the title alone: read the note. Leave a field empty when the note
+doesn't fit. `vaultkit check` warns on any other value.
+
+**6. Show the result and ask what's wrong.**
 
 ```sh
 vaultkit graph
 vaultkit graph --canvas curriculum.canvas
+```
+
+The canvas colours key notes green and the rest by approach (foundations
+cyan, hands-on orange, both purple).
+
+Then try the paths this makes possible, which are the point of the two
+fields. A path is what matches, plus everything it requires, minus what the
+reader already knows:
+
+```sh
+vaultkit graph --depth overview                   # the basics, with their prerequisites
+vaultkit graph --approach hands-on --known a,b    # building, skipping what they know
+vaultkit graph --key --depth working
 ```
 
 Point out the branch points — notes sharing a level are a choice the reader
@@ -142,5 +172,5 @@ the user's to write, not yours to generate.
 ## Keeping it current
 
 When reading notes are added, only the new ones need a round: ask what each
-requires and whether anything now requires it. Run `vaultkit check` after, and
+requires, whether anything now requires it, and its depth and approach. Run `vaultkit check` after, and
 regenerate the canvas. Don't revisit settled edges unless the user does.

@@ -324,3 +324,72 @@ def test_timeline_narrows_to_a_tag_or_named_notes(vlt, capsys):
         run(["timeline", "--tag", "nonesuch"])
     with pytest.raises(SystemExit):
         run(["timeline", "--notes", "nonesuch"])
+
+
+def _set(v, slug, **fields):
+    """Fill empty frontmatter keys on a reading note, e.g. depth="deep"."""
+    path = v.bundle / f"reading/{slug}.md"
+    text = path.read_text()
+    for k, val in fields.items():
+        text = text.replace(f"\n{k}:\n", f"\n{k}: {val}\n", 1)
+    path.write_text(text)
+
+
+def _paths(vlt, capsys, *argv):
+    import json
+    capsys.readouterr()
+    run(["graph", *argv])
+    g = json.loads(capsys.readouterr().out)
+    return [n["id"].split("/")[-1] for n in g["nodes"]], g
+
+
+def test_depth_and_approach_are_checked(vlt):
+    _three(vlt)
+    _set(vlt, "a", depth="deep", approach="[foundations, hands-on]")
+    assert not [m for lvl, _, m in okf.check(vlt) if "depth" in m or "approach" in m]
+    _set(vlt, "b", depth="advanced", approach="theory")
+    msgs = [m for lvl, _, m in okf.check(vlt) if lvl == "warning"]
+    assert any("depth: advanced" in m for m in msgs)
+    assert any("approach: theory" in m for m in msgs)
+
+
+def test_a_path_is_what_matches_plus_what_it_requires(vlt, capsys):
+    _three(vlt)
+    _requires(vlt, "b", "reading/a")
+    _requires(vlt, "c", "reading/b")
+    _set(vlt, "a", depth="overview", approach="foundations")
+    _set(vlt, "b", depth="working", approach="hands-on")
+    _set(vlt, "c", depth="deep", approach="hands-on")
+    assert _paths(vlt, capsys, "--depth", "deep")[0] == ["a", "b", "c"]  # c pulls in b, a
+    assert _paths(vlt, capsys, "--depth", "overview")[0] == ["a"]
+    assert _paths(vlt, capsys, "--approach", "hands-on")[0] == ["a", "b", "c"]
+    assert _paths(vlt, capsys, "--approach", "foundations", "--depth", "deep")[0] == []
+    with pytest.raises(SystemExit):
+        run(["graph", "--depth", "advanced"])
+
+
+def test_known_notes_stop_the_walk(vlt, capsys):
+    _three(vlt)
+    _requires(vlt, "b", "reading/a")
+    _requires(vlt, "c", "reading/b")
+    assert _paths(vlt, capsys, "--known", "a")[0] == ["b", "c"]
+    names, g = _paths(vlt, capsys, "--depth", "working", "--known", "a")
+    assert names == [] and g["edges"] == []
+    _set(vlt, "c", depth="deep")
+    names, g = _paths(vlt, capsys, "--depth", "deep", "--known", "b")
+    assert names == ["c"] and g["edges"] == []  # a was only needed through b
+    with pytest.raises(SystemExit):
+        run(["graph", "--known", "nonesuch"])
+
+
+def test_canvas_colours_by_approach_and_key_wins(vlt, tmp_path):
+    import json
+    _three(vlt)
+    _set(vlt, "a", approach="foundations")
+    _set(vlt, "b", approach="[foundations, hands-on]")
+    _set(vlt, "c", approach="hands-on", key="true")
+    out = tmp_path / "c.canvas"
+    run(["graph", "--canvas", str(out)])
+    colour = {n["file"].split("/")[-1][0]: n.get("color")
+              for n in json.loads(out.read_text())["nodes"]}
+    assert colour == {"a": "5", "b": "6", "c": "4"}

@@ -72,6 +72,11 @@ def main(argv=None):
                        description=commands.graph.__doc__)
     p.add_argument("--key", action="store_true",
                    help="only key notes and what they require")
+    p.add_argument("--depth", default="", help="overview, working or deep")
+    p.add_argument("--approach", default="", help="foundations or hands-on")
+    p.add_argument("--known", default="",
+                   help="comma-separated slugs the reader already knows; left out, "
+                        "with what only they required")
     p.add_argument("--write", metavar="FILE", default="",
                    help="write the JSON to FILE instead of printing")
     p.add_argument("--canvas", metavar="FILE", default="",

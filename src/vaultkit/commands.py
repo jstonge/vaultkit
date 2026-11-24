@@ -211,7 +211,9 @@ def check(args, v):
 # ---------------------------------------------------------------- graph
 
 CARD_W, CARD_H, GAP_X, GAP_Y = 420, 280, 140, 60
-KEY_COLOR = "4"  # a preset; Obsidian picks the shade (JSON Canvas 1.0)
+KEY_COLOR = "4"  # presets; Obsidian picks the shade (JSON Canvas 1.0)
+APPROACH_COLOR = {("foundations",): "5", ("hands-on",): "2",
+                  ("foundations", "hands-on"): "6"}
 
 
 def canvas(v, nodes, edges, by_id):
@@ -224,8 +226,9 @@ def canvas(v, nodes, edges, by_id):
                 "file": by_id[n["id"]].path.relative_to(v.root).as_posix(),
                 "x": n["level"] * (CARD_W + GAP_X), "y": r * (CARD_H + GAP_Y),
                 "width": CARD_W, "height": CARD_H}
-        if n["key"]:
-            card["color"] = KEY_COLOR
+        color = KEY_COLOR if n["key"] else APPROACH_COLOR.get(tuple(sorted(n["approach"])))
+        if color:
+            card["color"] = color
         cards.append(card)
     links = [{"id": f"{e['from']}->{e['to']}".replace("/", "-"),
               "fromNode": e["from"].replace("/", "-"), "fromSide": "right",
@@ -239,9 +242,12 @@ def graph(args, v):
     it. `level` is the longest chain of prerequisites behind a note, so level 0
     can be read first and notes sharing a level are a choice. `--key` keeps only
     the key notes and everything they require, the shortest route that still
-    makes sense. `--canvas FILE` writes an Obsidian canvas instead: a card per
-    note in a column per level, arrows running to the note that needs it, key
-    notes in green. Exits 1 if the edges loop or point nowhere; `check` says
+    makes sense. `--depth`, `--approach` and `--known slug,slug` narrow it the
+    same way, and combine: a path is what matches, plus what it requires, minus
+    what the reader already knows. `--canvas FILE` writes an Obsidian canvas instead: a card per
+    note in a column per level, arrows running to the note that needs it. Key
+    notes are green; the rest are coloured by approach (foundations cyan,
+    hands-on orange, both purple). Exits 1 if the edges loop or point nowhere; `check` says
     where."""
     notes = V.concepts(v)
     by_id = {n.id: n for n in notes}
@@ -263,15 +269,33 @@ def graph(args, v):
         return level[nid]
 
     ids = {n.id for n in V.notes_in(v, "reading")} | set(needs) | {e["from"] for e in edges}
-    if args.key:
-        keep, todo = set(), [i for i in ids if by_id[i].fields.get("key") is True]
+    known = set()
+    for name in names(args.known):
+        hit = [i for i in ids if i == name or i.split("/")[-1] == name]
+        if not hit:
+            sys.exit(f"--known: no reading note named {name}")
+        known.update(hit)
+    for flag, allowed in (("depth", okf.DEPTHS), ("approach", okf.APPROACHES)):
+        if getattr(args, flag) and getattr(args, flag) not in allowed:
+            sys.exit(f"--{flag} is one of: {', '.join(allowed)}")
+
+    def wanted(nid):
+        f = by_id[nid].fields
+        return ((not args.key or f.get("key") is True)
+                and (not args.depth or f.get("depth") == args.depth)
+                and (not args.approach or args.approach in V.listed(f, "approach")))
+
+    if args.key or args.depth or args.approach or known:
+        # a path: what matches, plus everything it requires, except what the
+        # reader already knows, which stops the walk (what only it needed goes too)
+        keep, todo = set(), [i for i in ids if wanted(i)]
         while todo:
             nid = todo.pop()
-            if nid not in keep:
+            if nid not in keep and nid not in known:
                 keep.add(nid)
                 todo += needs.get(nid, ())
         if not keep:
-            print("no notes have `key: true` yet", file=sys.stderr)
+            print("no notes match", file=sys.stderr)
         ids = keep
         edges = [e for e in edges if e["from"] in keep and e["to"] in keep]
     nodes = []
@@ -279,6 +303,8 @@ def graph(args, v):
         f = by_id[nid].fields
         nodes.append({"id": nid, "title": by_id[nid].title, "level": level[nid],
                       "key": f.get("key") is True,
+                      "depth": f.get("depth") or None,
+                      "approach": V.listed(f, "approach"),
                       "published": str(f.get("published") or "") or None,
                       v.group_by: V.listed(f, v.group_by)})
     if args.canvas:

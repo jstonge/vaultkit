@@ -27,7 +27,7 @@ would depend on it thinking the same way twice.
 | `vaultkit index` | print tags, groups, link counts and a line per note; `--write` rebuilds `index.md` |
 | `vaultkit verify NOTE` | append `{by: human:<you>, at: now}` to the note's `verified` |
 | `vaultkit check` | OKF conformance; exits 1 on errors, `--warnings` lists recommendations too |
-| `vaultkit graph` | the prerequisite graph from `requires:` as JSON; `--key` keeps key notes and what they require; `--canvas FILE` writes an Obsidian canvas |
+| `vaultkit graph` | the prerequisite graph from `requires:` as JSON; `--key` keeps key notes and what they require; `--depth`, `--approach` and `--known` cut a path through it; `--canvas FILE` writes an Obsidian canvas |
 | `vaultkit timeline` | reading notes by `published:` as a Mermaid timeline with a dated link list; `--tag`/`--notes` narrow it to one concept's readings |
 
 `vaultkit <command> -h` has the flags. `note` keeps every flag `tools/note` had,
@@ -69,6 +69,8 @@ too, for a vault that already keeps notes at its root.
 | `verified: [{by, at}]` | a person checked it, as `human:<id>` | `verify`, never an agent |
 | `requires: ["[[reading/slug]]"]` | extension key: notes to read first; the edges of the curriculum graph | by hand, or an agent's draft you approve; `check` rejects dangling links and loops |
 | `key: true` | extension key: a key paper | by hand |
+| `depth` | extension key: how far a note goes — `overview`, `working` or `deep` | by hand; `check` warns on other values |
+| `approach` | extension key: `foundations` or `hands-on`, as a list if both | by hand; `check` warns on other values |
 | `kind`, `by`, `published`, `addedBy`, `readStatus`, `recBy`, `localCopy`, `date`, the group field | extension keys | as in tales |
 
 `status` is OKF's lifecycle field (`draft`, `stable`, `deprecated`), so whether

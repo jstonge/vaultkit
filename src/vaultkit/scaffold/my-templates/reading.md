@@ -9,6 +9,8 @@ published:
 __GROUP__:
 requires:
 key:
+depth:
+approach:
 readStatus: unread
 recBy:
 addedBy:
