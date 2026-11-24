@@ -179,6 +179,74 @@ def check_log(v, path, problems):
         problems.append(("error", path, "log dates must run newest first"))
 
 
+def prerequisites(notes):
+    """{concept id: (note, [(as written, concept id or None)])} for every note
+    with `requires`. A target resolves by bundle path (`reading/x`), else by
+    filename, the way Obsidian resolves a wikilink."""
+    ids = {n.id: n.id for n in notes}
+    stems = {}
+    for n in notes:
+        stems.setdefault(n.path.stem, n.id)
+    out = {}
+    for n in notes:
+        edges = []
+        for raw in V.as_list(n.fields.get("requires")):
+            if isinstance(raw, list):  # an unquoted [[x]] is YAML for a nested list
+                edges.append((str(raw), None))
+                continue
+            name = str(raw).strip().strip("[]").split("|")[0].strip()
+            edges.append((str(raw), ids.get(name) or stems.get(name.split("/")[-1])))
+        if edges:
+            out[n.id] = (n, edges)
+    return out
+
+
+def find_cycle(graph):
+    """One cycle as a list of ids (first == last), or None. `graph` is
+    {id: [ids]}; iterative so a long chain can't hit the recursion limit."""
+    state = {}  # id -> 1 while on the current path, 2 once finished
+    for start in graph:
+        if start in state:
+            continue
+        path, todo = [start], [iter(graph.get(start, ()))]
+        state[start] = 1
+        while todo:
+            for nxt in todo[-1]:
+                if state.get(nxt) == 1:
+                    return path[path.index(nxt):] + [nxt]
+                if nxt not in state:
+                    state[nxt] = 1
+                    path.append(nxt)
+                    todo.append(iter(graph.get(nxt, ())))
+                    break
+            else:
+                state[path.pop()] = 2
+                todo.pop()
+    return None
+
+
+def check_graph(v, problems):
+    """`requires` edges must point at notes that exist and never loop back;
+    `key` is a plain true/false."""
+    notes = V.concepts(v)
+    graph = {}
+    for nid, (n, edges) in prerequisites(notes).items():
+        for raw, target in edges:
+            if target is None:
+                problems.append(("error", n.path, f"`requires` points at {raw!r}, "
+                                 "which is no note in the bundle (quote wikilinks: "
+                                 '"[[reading/slug]]")'))
+        graph[nid] = [t for _, t in edges if t]
+    if cycle := find_cycle(graph):
+        by_id = {n.id: n for n in notes}
+        problems.append(("error", by_id[cycle[0]].path,
+                         "`requires` loops: " + " -> ".join(cycle)))
+    for n in notes:
+        k = n.fields.get("key")
+        if k not in (None, "", True, False):
+            problems.append(("warning", n.path, f"`key: {k}` should be true or false"))
+
+
 def check(v):
     problems = []
     for f in sorted(v.bundle.rglob("*.md")):
@@ -190,4 +258,5 @@ def check(v):
             check_log(v, f, problems)
         else:
             check_concept(v, f, problems)
+    check_graph(v, problems)
     return problems

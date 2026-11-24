@@ -7,6 +7,8 @@ resource:
 by:
 published:
 __GROUP__:
+requires:
+key:
 readStatus: unread
 recBy:
 addedBy:

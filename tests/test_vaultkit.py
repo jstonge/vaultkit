@@ -176,3 +176,54 @@ def test_verify_by_slug_skips_the_archive_and_archives_need_no_review(vlt):
     run(["verify", "p"])
     f, _ = V.read(vlt.bundle / "reading/p.md")
     assert f["verified"][0]["by"] == "human:tester"
+
+
+def _requires(v, slug, *targets):
+    """Put a `requires` list on an existing reading note."""
+    path = v.bundle / f"reading/{slug}.md"
+    text = path.read_text()
+    lines = "".join(f'  - "[[{t}]]"\n' for t in targets)
+    path.write_text(text.replace("requires:\n", f"requires:\n{lines}", 1))
+
+
+def _three(vlt):
+    for s in "abc":
+        run(["note", f"https://x.org/{s}", "--slug", s])
+
+
+def test_requires_that_resolve_and_do_not_loop_conform(vlt):
+    _three(vlt)
+    _requires(vlt, "b", "reading/a")
+    _requires(vlt, "c", "reading/a", "b")  # by path, and by bare filename
+    conforms(vlt)
+
+
+def test_requires_pointing_nowhere_is_an_error(vlt):
+    _three(vlt)
+    _requires(vlt, "b", "reading/missing")
+    errors = [m for lvl, _, m in okf.check(vlt) if lvl == "error"]
+    assert any("missing" in m for m in errors)
+
+
+def test_requires_that_loop_are_an_error(vlt):
+    _three(vlt)
+    _requires(vlt, "a", "reading/c")
+    _requires(vlt, "b", "reading/a")
+    _requires(vlt, "c", "reading/b")
+    errors = [m for lvl, _, m in okf.check(vlt) if lvl == "error"]
+    assert any("loops" in m for m in errors)
+
+
+def test_a_note_cannot_require_itself(vlt):
+    _three(vlt)
+    _requires(vlt, "a", "reading/a")
+    assert any("loops" in m for lvl, _, m in okf.check(vlt) if lvl == "error")
+
+
+def test_key_is_a_boolean(vlt):
+    _three(vlt)
+    path = vlt.bundle / "reading/a.md"
+    path.write_text(path.read_text().replace("key:\n", "key: maybe\n", 1))
+    assert any("`key" in m for lvl, _, m in okf.check(vlt) if lvl == "warning")
+    path.write_text(path.read_text().replace("key: maybe", "key: true", 1))
+    assert not any("`key" in m for _, _, m in okf.check(vlt))
