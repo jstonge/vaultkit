@@ -308,16 +308,35 @@ def timeline(args, v):
     and GitHub both draw it) with a dated list of links underneath, because an
     event in the diagram can't link. A section per year; notes sharing a date
     share a period. Notes with no usable date are listed last. Links are
-    relative to synthesis/, where the note that holds this goes."""
+    relative to synthesis/, where the note that holds this goes.
+
+    `--tag` and `--notes` narrow the list to the readings behind one concept
+    (a note carrying any of the tags, or named by slug); with both, either
+    qualifies. This is still publication dates: an event's own date is a
+    judgment the command doesn't make."""
+    pool = V.notes_in(v, "reading")
+    tags = {t.lower() for t in names(args.tag)}
+    slugs = set(names(args.notes))
+    if tags or slugs:
+        if missing := slugs - {n.slug for n in pool}:
+            sys.exit(f"no reading notes named: {', '.join(sorted(missing))}")
+        pool = [n for n in pool
+                if slugs & {n.slug} or tags & {t.lower() for t in V.listed(n.fields, "tags")}]
+        if not pool:
+            known = sorted({t for n in V.notes_in(v, "reading")
+                            for t in V.listed(n.fields, "tags")})
+            sys.exit(f"no reading notes carry {', '.join(sorted(tags))}\n"
+                     f"tags in use: {', '.join(known)}")
     dated, undated = {}, []
-    for n in V.notes_in(v, "reading"):
+    for n in pool:
         when = str(n.fields.get("published") or "").strip()
         if PUBLISHED.match(when):
             dated.setdefault(when, []).append(n)
         else:
             undated.append(n)
     home = v.bundle / "synthesis"
-    title = args.title or f"{v.name} reading timeline"
+    title = args.title or (f"{', '.join(sorted(tags))} readings timeline" if tags
+                           else f"{v.name} reading timeline")
     out = ["```mermaid", "timeline", f"    title {mermaid_text(title)}"]
     year = None
     for when in sorted(dated):

@@ -305,3 +305,20 @@ def test_timeline_orders_by_date_and_survives_colons(vlt, capsys):
     assert out.index("section 2024") < out.index("section 2025")
     assert "(../reading/a.md)" in out and "No usable `published:`" in out
     assert "[Td: sub](../reading/d.md)" in out
+
+
+def test_timeline_narrows_to_a_tag_or_named_notes(vlt, capsys):
+    for slug, tag in [("a", "mcp"), ("b", "skills"), ("c", "mcp")]:
+        run(["note", f"https://x.org/{slug}", "--slug", slug, "--title", slug.upper(),
+             "--tags", tag])
+    capsys.readouterr()
+    run(["timeline", "--tag", "MCP"])
+    out = capsys.readouterr().out
+    assert "reading/a.md" in out and "reading/c.md" in out and "reading/b.md" not in out
+    run(["timeline", "--tag", "skills", "--notes", "a"])
+    out = capsys.readouterr().out
+    assert "reading/a.md" in out and "reading/b.md" in out and "reading/c.md" not in out
+    with pytest.raises(SystemExit):
+        run(["timeline", "--tag", "nonesuch"])
+    with pytest.raises(SystemExit):
+        run(["timeline", "--notes", "nonesuch"])

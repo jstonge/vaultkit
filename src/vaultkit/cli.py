@@ -81,6 +81,10 @@ def main(argv=None):
     p = sub.add_parser("timeline", help="reading notes by publication date, as Mermaid",
                        description=commands.timeline.__doc__)
     p.add_argument("--title", default="", help="the diagram's title")
+    p.add_argument("--tag", default="",
+                   help="comma-separated; only readings carrying one of these tags")
+    p.add_argument("--notes", default="",
+                   help="comma-separated slugs to include, alone or with --tag")
     p.set_defaults(fn=commands.timeline)
 
     args = ap.parse_args(argv)
