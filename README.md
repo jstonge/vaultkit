@@ -65,7 +65,7 @@ too, for a vault that already keeps notes at its root.
 | `sources` | provenance; the archived copy first | `note`, when it archives |
 | `generated: {by, at}` | an agent wrote this, as `<agent>/<model>` | `note` / `synth` when there's a summary |
 | `verified: [{by, at}]` | a person checked it, as `human:<id>` | `verify`, never an agent |
-| `kind`, `by`, `addedBy`, `readStatus`, `recBy`, `localCopy`, `date`, the group field | extension keys | as in tales |
+| `kind`, `by`, `published`, `addedBy`, `readStatus`, `recBy`, `localCopy`, `date`, the group field | extension keys | as in tales |
 
 `status` is OKF's lifecycle field (`draft`, `stable`, `deprecated`), so whether
 someone has read a source moved to `readStatus`. Body links are relative

@@ -1,5 +1,6 @@
 """Fetch a source as markdown. Shells out to uvx, so there's nothing to install."""
 
+import json
 import re
 import subprocess
 import sys
@@ -54,24 +55,46 @@ def flatten_vtt(raw, every=90):
     return "\n\n".join(out)
 
 
+def iso_date(raw):
+    """YYYY-MM-DD from the 2025-10-15 or 20251015 a tool reports, else None."""
+    m = re.match(r"(\d{4})-?(\d{2})-?(\d{2})", str(raw or "").strip())
+    return f"{m[1]}-{m[2]}-{m[3]}" if m else None
+
+
+def split_metadata(text):
+    """trafilatura's --with-metadata puts a frontmatter block on the article;
+    take the publication date out of it and drop the rest."""
+    m = re.match(r"---\n(.*?)\n---\n", text, re.S)
+    if not m:
+        return text, None
+    date = re.search(r"(?m)^date:\s*[\"']?([^\"'\n]+)", m[1])
+    return text[m.end():].strip(), iso_date(date and date[1])
+
+
 def fetch(url):
-    """(markdown, how it was made), or (None, None) if it can't be retrieved."""
+    """(markdown, how it was made, publication date or None), or
+    (None, None, None) if it can't be retrieved."""
     if IS_VIDEO.search(url):
         with tempfile.TemporaryDirectory() as tmp:
             res = subprocess.run(
                 ["uvx", "--quiet", "yt-dlp", "--write-auto-subs", "--write-subs",
                  "--sub-lang", "en.*", "--skip-download", "--sub-format", "vtt",
-                 "-o", f"{tmp}/v.%(ext)s", url],
+                 "--write-info-json", "-o", f"{tmp}/v.%(ext)s", url],
                 capture_output=True, text=True)
             vtts = sorted(Path(tmp).glob("*.vtt"))
             if vtts:
+                info = Path(tmp) / "v.info.json"
+                published = (iso_date(json.loads(info.read_text()).get("upload_date"))
+                             if info.exists() else None)
                 return (flatten_vtt(vtts[0].read_text(encoding="utf-8")),
-                        "yt-dlp auto-captions; expect transcription errors")
+                        "yt-dlp auto-captions; expect transcription errors", published)
     else:
         res = subprocess.run(
-            ["uvx", "--quiet", "trafilatura", "-u", url, "--markdown", "--no-comments"],
+            ["uvx", "--quiet", "trafilatura", "-u", url, "--markdown", "--no-comments",
+             "--with-metadata"],
             capture_output=True, text=True)
         if res.returncode == 0 and res.stdout.strip():
-            return res.stdout.strip(), "trafilatura article text"
+            text, published = split_metadata(res.stdout.strip())
+            return text, "trafilatura article text", published
     print(f"could not archive {url}: {res.stderr.strip()[:200]}", file=sys.stderr)
-    return None, None
+    return None, None, None

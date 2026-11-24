@@ -49,13 +49,15 @@ def names(csv):
     return [x.strip() for x in csv.split(",") if x.strip()]
 
 
-def write_source(v, slug, url, text, how):
+def write_source(v, slug, url, text, how, published=None):
     copy = v.sources / f"{slug}.md"
     fields = CommentedMap()
     fields["type"] = "source"
     fields["title"] = f"{slug} (archived)"
     fields["description"] = f"Archived copy of {url}, fetched {V.today()}."
     fields["resource"] = url
+    if published:
+        fields["published"] = published
     fields["generated"] = CommentedMap(by=V.TOOL_ACTOR, at=V.now())
     fields["fetchedWith"] = how
     copy.parent.mkdir(parents=True, exist_ok=True)
@@ -103,9 +105,10 @@ def run(args, v, summary=None):
     url = args.url
     copy = v.sources / f"{args.slug}.md"
     if t.archive and url and not args.no_archive:
-        text, how = fetch(url)
+        text, how, published = fetch(url)
         if text:
-            print(write_source(v, args.slug, url, text, how).relative_to(v.root))
+            print(write_source(v, args.slug, url, text, how, published)
+                  .relative_to(v.root))
 
     # a re-run keeps the kind already on the note unless one is passed, so an
     # explicit --kind at creation isn't overwritten by a URL guess
@@ -130,6 +133,11 @@ def run(args, v, summary=None):
                                        title="archived copy"))
         fields["sources"] = V.seq(sources)
         fields["localCopy"] = f"[[sources/{args.slug}|archived copy]]"
+        # the page's own metadata; a date already on the note was put there
+        # by someone who checked it, so it wins
+        published = V.read(copy)[0].get("published")
+        if published and not fields.get("published"):
+            fields["published"] = str(published)
     for pair in args.set:
         if "=" not in pair:
             sys.exit(f"--set takes KEY=VALUE, got {pair!r}")

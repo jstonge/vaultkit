@@ -14,7 +14,7 @@ def vlt(tmp_path, monkeypatch):
     monkeypatch.setenv("VAULT_AGENT", "Claude")
     monkeypatch.delenv("VAULT_MODEL", raising=False)
     monkeypatch.setattr(V, "identity", lambda: "Test Person")
-    monkeypatch.setattr(note_mod, "fetch", lambda url: ("Archived body text.", "fake fetch"))
+    monkeypatch.setattr(note_mod, "fetch", lambda url: ("Archived body text.", "fake fetch", "2025-10-15"))
     cli.main(["init", str(tmp_path / "v"), "--group-by", "harness"])
     monkeypatch.chdir(tmp_path / "v")
     return V.load()
@@ -63,7 +63,24 @@ def test_reading_note_carries_okf_fields(vlt):
     assert "### Test Person" in body
     src, _ = V.read(vlt.sources / "a-b.md")
     assert src["type"] == "source" and src["resource"] == "https://github.com/a/b"
+    assert src["published"] == "2025-10-15" and f["published"] == "2025-10-15"
     conforms(vlt)
+
+
+def test_a_published_date_already_on_the_note_wins(vlt):
+    run(["note", "https://x.org/p", "--slug", "p", "--set", "published=2024-01-02"])
+    run(["note", "https://x.org/p", "--slug", "p", "--force"])
+    f, _ = V.read(vlt.bundle / "reading/p.md")
+    assert f["published"] == "2024-01-02"
+
+
+def test_metadata_dates_are_normalised_and_stripped():
+    from vaultkit.archive import iso_date, split_metadata
+    assert iso_date("20260810") == "2026-08-10"
+    assert iso_date("not a date") is None
+    text, date = split_metadata('---\ntitle: "T"\ndate: "2025-10-15"\n---\n# T\n\nBody')
+    assert (text, date) == ("# T\n\nBody", "2025-10-15")
+    assert split_metadata("# T\n\nBody") == ("# T\n\nBody", None)
 
 
 def test_rerun_keeps_the_users_section_and_replaces_the_summary(vlt):

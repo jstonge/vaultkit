@@ -5,6 +5,7 @@ description:
 kind:
 resource:
 by:
+published:
 __GROUP__:
 readStatus: unread
 recBy:

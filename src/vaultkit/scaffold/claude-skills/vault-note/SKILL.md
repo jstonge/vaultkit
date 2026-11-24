@@ -43,6 +43,9 @@ transcript for video) and creates the note. Then read the archived copy — the
 whole thing, not the first screen. The summary is the only part of this job
 that requires judgment, and you can't exercise it on a page you skimmed.
 
+It also fills `published:` when the page says when it was published — see
+**Published** below. Check that date while you read.
+
 **2. Write the summary and run it back in.**
 
 ```sh
@@ -172,6 +175,22 @@ If `who/<name>.md` doesn't exist yet, the link dangles until someone writes it
 (OKF doesn't treat that as an error). Mention it to the user. When you do write
 one, a web search for background is appropriate, but mark it: per `AGENTS.md`,
 anything not from `sources/` says so with the date it was looked up.
+
+## Published
+
+`published:` is when the source came out, as `YYYY-MM-DD` — not `date:`,
+which is when the note was made. `vaultkit note` fills it from the page's own
+metadata when it archives (trafilatura for articles, the upload date for
+videos), records it on the archive in `sources/` too, and never overwrites a
+date that's already on the note.
+
+Metadata dates are a guess, so check it against the archive while you read:
+a byline date, "posted on", a changelog entry, the arXiv submission date. If
+it's missing or wrong, set it with `--set published=YYYY-MM-DD`; use `YYYY-MM`
+or `YYYY` when that's all the source gives. For a repo or docs page that
+changes continuously, leave it empty rather than picking a commit. Don't fill
+it from a web search unless you say so in the summary, with the date you
+looked it up.
 
 ## __GROUP_LABEL__
 
