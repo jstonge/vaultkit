@@ -1,6 +1,7 @@
-"""The smaller commands: index, synth, verify, check."""
+"""The smaller commands: index, synth, verify, check, graph."""
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -205,3 +206,46 @@ def check(args, v):
     tail = "" if args.warnings or not warnings else " (--warnings to list them)"
     print(f"{errors} error(s), {warnings} warning(s){tail}")
     sys.exit(1 if errors else 0)
+
+
+# ---------------------------------------------------------------- graph
+
+def graph(args, v):
+    """The prerequisite graph as JSON: every reading note as a node, one edge
+    per `requires` entry running from the prerequisite to the note that needs
+    it. `level` is the longest chain of prerequisites behind a note, so level 0
+    can be read first and notes sharing a level are a choice. Exits 1 if the
+    edges loop or point nowhere; `check` says where."""
+    notes = V.concepts(v)
+    by_id = {n.id: n for n in notes}
+    reqs = okf.prerequisites(notes)
+    edges, needs = [], {}
+    for nid, (_, found) in reqs.items():
+        needs[nid] = [t for _, t in found if t]
+        if len(needs[nid]) != len(found):
+            sys.exit("`requires` points at a missing note; run `vaultkit check`")
+        edges += [{"from": t, "to": nid} for t in needs[nid]]
+    if okf.find_cycle(needs):
+        sys.exit("`requires` loops; run `vaultkit check`")
+
+    level = {}
+
+    def depth(nid):
+        if nid not in level:
+            level[nid] = 1 + max((depth(t) for t in needs.get(nid, ())), default=-1)
+        return level[nid]
+
+    ids = {n.id for n in V.notes_in(v, "reading")} | set(needs) | {e["from"] for e in edges}
+    nodes = []
+    for nid in sorted(ids, key=lambda i: (depth(i), i)):
+        f = by_id[nid].fields
+        nodes.append({"id": nid, "title": by_id[nid].title, "level": level[nid],
+                      "key": f.get("key") is True,
+                      "published": str(f.get("published") or "") or None,
+                      v.group_by: V.listed(f, v.group_by)})
+    text = json.dumps({"nodes": nodes, "edges": edges}, indent=2, ensure_ascii=False) + "\n"
+    if args.write:
+        Path(args.write).write_text(text, encoding="utf-8")
+        print(f"{args.write}: {len(nodes)} notes, {len(edges)} edges")
+    else:
+        print(text, end="")

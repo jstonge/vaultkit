@@ -227,3 +227,27 @@ def test_key_is_a_boolean(vlt):
     assert any("`key" in m for lvl, _, m in okf.check(vlt) if lvl == "warning")
     path.write_text(path.read_text().replace("key: maybe", "key: true", 1))
     assert not any("`key" in m for _, _, m in okf.check(vlt))
+
+
+def test_graph_levels_edges_and_key(vlt, capsys):
+    import json
+    _three(vlt)
+    _requires(vlt, "b", "reading/a")
+    _requires(vlt, "c", "reading/a", "b")
+    p = vlt.bundle / "reading/a.md"
+    p.write_text(p.read_text().replace("key:\n", "key: true\n", 1))
+    capsys.readouterr()
+    run(["graph"])
+    g = json.loads(capsys.readouterr().out)
+    level = {n["id"]: n["level"] for n in g["nodes"]}
+    assert level == {"reading/a": 0, "reading/b": 1, "reading/c": 2}
+    assert {"from": "reading/a", "to": "reading/c"} in g["edges"]
+    assert [n["key"] for n in g["nodes"]] == [True, False, False]
+
+
+def test_graph_refuses_a_loop(vlt):
+    _three(vlt)
+    _requires(vlt, "a", "reading/b")
+    _requires(vlt, "b", "reading/a")
+    with pytest.raises(SystemExit):
+        run(["graph"])

@@ -28,7 +28,7 @@ def main(argv=None):
         if argv[:1] == ["--version"]:
             print(__version__)
             return
-        print(__doc__.strip() + "\n\ncommands: init, note, synth, index, verify, check\n"
+        print(__doc__.strip() + "\n\ncommands: init, note, synth, index, verify, check, graph\n"
               "`vaultkit <command> -h` for each.")
         return
 
@@ -67,6 +67,12 @@ def main(argv=None):
     p = sub.add_parser("check", help="OKF conformance", description=commands.check.__doc__)
     p.add_argument("--warnings", action="store_true", help="list warnings too")
     p.set_defaults(fn=commands.check)
+
+    p = sub.add_parser("graph", help="the prerequisite graph as JSON",
+                       description=commands.graph.__doc__)
+    p.add_argument("--write", metavar="FILE", default="",
+                   help="write to FILE instead of printing")
+    p.set_defaults(fn=commands.graph)
 
     args = ap.parse_args(argv)
     args.fn(args, v)
