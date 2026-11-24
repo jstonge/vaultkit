@@ -40,6 +40,8 @@ def test_init_makes_a_conformant_empty_bundle(vlt):
     assert "--harness" in (vlt.root / ".claude/skills/vault-note/SKILL.md").read_text()
     tl = (vlt.root / ".claude/skills/vault-timeline/SKILL.md").read_text()
     assert tl.startswith("---\nname: vault-timeline") and "__" not in tl
+    cur = (vlt.root / ".claude/skills/vault-curriculum/SKILL.md").read_text()
+    assert cur.startswith("---\nname: vault-curriculum") and "__" not in cur
     assert "__" not in (vlt.root / "vault.toml").read_text()
     conforms(vlt)
 

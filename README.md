@@ -45,7 +45,7 @@ new-vault/
   vault.toml          which folders, templates and grouping field this vault uses
   AGENTS.md           conventions for agents; CLAUDE.md points here
   my-templates/       shared with Obsidian's Templates plugin
-  .claude/skills/     vault-note, vault-synthesis, vault-review
+  .claude/skills/     vault-note, vault-synthesis, vault-review, vault-timeline, vault-curriculum
   kb/                 the bundle — every .md here needs a `type:`
     index.md          generated; okf_version at the root
     log.md            generated; one bullet per creation, update, verification
