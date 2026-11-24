@@ -42,6 +42,10 @@ def test_init_makes_a_conformant_empty_bundle(vlt):
     assert tl.startswith("---\nname: vault-timeline") and "__" not in tl
     cur = (vlt.root / ".claude/skills/vault-curriculum/SKILL.md").read_text()
     assert cur.startswith("---\nname: vault-curriculum") and "__" not in cur
+    pr = (vlt.root / ".claude/skills/vault-practice/SKILL.md").read_text()
+    assert pr.startswith("---\nname: vault-practice") and "__" not in pr
+    assert (vlt.root / "my-templates/exercise.md").exists()
+    assert (vlt.root / "my-templates/project.md").exists()
     assert "__" not in (vlt.root / "vault.toml").read_text()
     conforms(vlt)
 
@@ -393,3 +397,45 @@ def test_canvas_colours_by_approach_and_key_wins(vlt, tmp_path):
     colour = {n["file"].split("/")[-1][0]: n.get("color")
               for n in json.loads(out.read_text())["nodes"]}
     assert colour == {"a": "5", "b": "6", "c": "4"}
+
+
+def _practice(vlt, template, slug, requires=(), done=True):
+    """An exercise or project note, written the way the skill does."""
+    run(["note", "--template", template, "--slug", slug, "--title", slug.upper(),
+         "--description", "One sentence.", "--no-archive"], stdin="What this is.")
+    path = vlt.bundle / ("exercises" if template == "exercise" else "projects") / f"{slug}.md"
+    text = path.read_text()
+    if done:
+        text = text.replace("## Done when\n", "## Done when\n\nIt prints hello.\n")
+    lines = "".join(f'  - "[[{t}]]"\n' for t in requires)
+    path.write_text(text.replace("requires:\n", f"requires:\n{lines}", 1))
+    return path
+
+
+def test_exercises_and_projects_conform_and_need_a_done_when(vlt):
+    _three(vlt)
+    _practice(vlt, "exercise", "first-call", ["reading/a"])
+    _practice(vlt, "project", "my-agent", ["exercises/first-call"])
+    conforms(vlt)
+    assert not [m for _, _, m in okf.check(vlt) if "Done when" in m]
+    _practice(vlt, "exercise", "no-check", ["reading/a"], done=False)
+    assert any("Done when" in m for lvl, _, m in okf.check(vlt) if lvl == "warning")
+
+
+def test_graph_holds_exercises_and_projects_and_walks_to_one(vlt, capsys):
+    _three(vlt)
+    _requires(vlt, "b", "reading/a")
+    _practice(vlt, "exercise", "one", ["reading/a"])
+    _practice(vlt, "exercise", "two", ["reading/b", "exercises/one"])
+    _practice(vlt, "project", "proj", ["exercises/two"])
+    names, g = _paths(vlt, capsys)
+    assert {"one", "two", "proj"} <= set(names)
+    types = {n["id"].split("/")[-1]: n["type"] for n in g["nodes"]}
+    assert types["one"] == "exercise" and types["proj"] == "project"
+    names, g = _paths(vlt, capsys, "--to", "proj")
+    assert sorted(names) == ["a", "b", "one", "proj", "two"]  # c isn't needed
+    assert names[0] == "a" and names[-2:] == ["two", "proj"]  # prerequisites first
+    names, _ = _paths(vlt, capsys, "--to", "proj", "--known", "b")
+    assert sorted(names) == ["a", "one", "proj", "two"]  # a is still needed through one
+    with pytest.raises(SystemExit):
+        run(["graph", "--to", "nonesuch"])

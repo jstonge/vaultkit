@@ -247,6 +247,12 @@ def check_graph(v, problems):
         k = n.fields.get("key")
         if k not in (None, "", True, False):
             problems.append(("warning", n.path, f"`key: {k}` should be true or false"))
+        if n.fields.get("type") == "exercise":
+            m = re.search(r"(?ims)^#{2,}\s*done when\s*\n(.*?)(?=^#{2,}\s|\Z)", n.body)
+            if not m or not m[1].strip():
+                problems.append(("warning", n.path, "an exercise needs text under "
+                                 "`## Done when`: how to tell it worked, by running "
+                                 "something"))
         d = n.fields.get("depth")
         if d not in (None, "") and d not in DEPTHS:
             problems.append(("warning", n.path,

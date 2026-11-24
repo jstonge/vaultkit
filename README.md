@@ -27,7 +27,7 @@ would depend on it thinking the same way twice.
 | `vaultkit index` | print tags, groups, link counts and a line per note; `--write` rebuilds `index.md` |
 | `vaultkit verify NOTE` | append `{by: human:<you>, at: now}` to the note's `verified` |
 | `vaultkit check` | OKF conformance; exits 1 on errors, `--warnings` lists recommendations too |
-| `vaultkit graph` | the prerequisite graph from `requires:` as JSON; `--key` keeps key notes and what they require; `--depth`, `--approach` and `--known` cut a path through it; `--canvas FILE` writes an Obsidian canvas |
+| `vaultkit graph` | the prerequisite graph from `requires:` as JSON; `--key` keeps key notes and what they require; `--depth`, `--approach` and `--known` cut a path through it; `--to SLUG` gives one note and everything it requires (a project's milestones, in order); `--canvas FILE` writes an Obsidian canvas |
 | `vaultkit timeline` | reading notes by `published:` as a Mermaid timeline with a dated link list; `--tag`/`--notes` narrow it to one concept's readings |
 
 `vaultkit <command> -h` has the flags. `note` keeps every flag `tools/note` had,
@@ -45,12 +45,12 @@ new-vault/
   vault.toml          which folders, templates and grouping field this vault uses
   AGENTS.md           conventions for agents; CLAUDE.md points here
   my-templates/       shared with Obsidian's Templates plugin
-  .claude/skills/     vault-note, vault-synthesis, vault-review, vault-timeline, vault-curriculum
+  .claude/skills/     vault-note, vault-synthesis, vault-review, vault-timeline, vault-curriculum, vault-practice
   kb/                 the bundle — every .md here needs a `type:`
     index.md          generated; okf_version at the root
     log.md            generated; one bullet per creation, update, verification
     <atomic notes>    your own thinking
-    reading/ synthesis/ who/ sources/   each with its own index.md
+    reading/ synthesis/ who/ exercises/ projects/ sources/   each with its own index.md
 ```
 
 The bundle is a subfolder so that README, AGENTS.md and the templates never

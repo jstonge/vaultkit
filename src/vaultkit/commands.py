@@ -237,18 +237,22 @@ def canvas(v, nodes, edges, by_id):
 
 
 def graph(args, v):
-    """The prerequisite graph as JSON: every reading note as a node, one edge
-    per `requires` entry running from the prerequisite to the note that needs
-    it. `level` is the longest chain of prerequisites behind a note, so level 0
-    can be read first and notes sharing a level are a choice. `--key` keeps only
-    the key notes and everything they require, the shortest route that still
-    makes sense. `--depth`, `--approach` and `--known slug,slug` narrow it the
-    same way, and combine: a path is what matches, plus what it requires, minus
-    what the reader already knows. `--canvas FILE` writes an Obsidian canvas instead: a card per
-    note in a column per level, arrows running to the note that needs it. Key
-    notes are green; the rest are coloured by approach (foundations cyan,
-    hands-on orange, both purple). Exits 1 if the edges loop or point nowhere; `check` says
-    where."""
+    """The prerequisite graph as JSON: every reading, exercise and project as a
+    node, one edge per `requires` entry running from the prerequisite to the
+    note that needs it. `level` is the longest chain of prerequisites behind a
+    note, so level 0 can be read first and notes sharing a level are a choice.
+
+    A path is what matches, plus everything it requires, minus what the reader
+    already knows. `--key`, `--depth`, `--approach` and `--known slug,slug`
+    narrow the graph that way, and combine. `--to SLUG` starts from one note
+    instead: it and everything it requires, which for a project is its
+    milestones in order.
+
+    `--canvas FILE` writes an Obsidian canvas instead: a card per note in a
+    column per level, arrows running to the note that needs it. Key notes are
+    green; the rest are coloured by approach (foundations cyan, hands-on
+    orange, both purple). Exits 1 if the edges loop or point nowhere; `check`
+    says where."""
     notes = V.concepts(v)
     by_id = {n.id: n for n in notes}
     reqs = okf.prerequisites(notes)
@@ -268,24 +272,35 @@ def graph(args, v):
             level[nid] = 1 + max((depth(t) for t in needs.get(nid, ())), default=-1)
         return level[nid]
 
-    ids = {n.id for n in V.notes_in(v, "reading")} | set(needs) | {e["from"] for e in edges}
+    practice = {n.id for t in ("exercise", "project") if t in v.templates
+                for n in V.notes_in(v, t)}
+    ids = ({n.id for n in V.notes_in(v, "reading")} | practice | set(needs)
+           | {e["from"] for e in edges})
     known = set()
     for name in names(args.known):
         hit = [i for i in ids if i == name or i.split("/")[-1] == name]
         if not hit:
             sys.exit(f"--known: no reading note named {name}")
         known.update(hit)
+    target = None
+    if args.to:
+        hit = [i for i in ids if i == args.to or i.split("/")[-1] == args.to]
+        if len(hit) != 1:
+            sys.exit(f"--to: {'no note' if not hit else 'several notes'} named {args.to}")
+        target = hit[0]
     for flag, allowed in (("depth", okf.DEPTHS), ("approach", okf.APPROACHES)):
         if getattr(args, flag) and getattr(args, flag) not in allowed:
             sys.exit(f"--{flag} is one of: {', '.join(allowed)}")
 
     def wanted(nid):
         f = by_id[nid].fields
+        if target:
+            return nid == target
         return ((not args.key or f.get("key") is True)
                 and (not args.depth or f.get("depth") == args.depth)
                 and (not args.approach or args.approach in V.listed(f, "approach")))
 
-    if args.key or args.depth or args.approach or known:
+    if args.key or args.depth or args.approach or known or target:
         # a path: what matches, plus everything it requires, except what the
         # reader already knows, which stops the walk (what only it needed goes too)
         keep, todo = set(), [i for i in ids if wanted(i)]
@@ -302,6 +317,7 @@ def graph(args, v):
     for nid in sorted(ids, key=lambda i: (depth(i), i)):
         f = by_id[nid].fields
         nodes.append({"id": nid, "title": by_id[nid].title, "level": level[nid],
+                      "type": f.get("type"),
                       "key": f.get("key") is True,
                       "depth": f.get("depth") or None,
                       "approach": V.listed(f, "approach"),

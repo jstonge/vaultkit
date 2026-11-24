@@ -39,6 +39,14 @@ folder = "who"
 index_by = "kind"
 description = "The people and organisations behind the sources."
 
+[templates.exercise]
+folder = "exercises"
+description = "Small things to do or build; each requires the readings it practises."
+
+[templates.project]
+folder = "projects"
+description = "A chain of exercises toward one finished thing."
+
 [templates.atomic]
 folder = ""
 description = "Our own thinking, one idea per note."
