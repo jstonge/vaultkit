@@ -210,13 +210,38 @@ def check(args, v):
 
 # ---------------------------------------------------------------- graph
 
+CARD_W, CARD_H, GAP_X, GAP_Y = 420, 280, 140, 60
+KEY_COLOR = "4"  # a preset; Obsidian picks the shade (JSON Canvas 1.0)
+
+
+def canvas(v, nodes, edges, by_id):
+    """JSON Canvas 1.0: left to right by level, so reading order is the layout.
+    `file` is the path from the vault root, which is how Obsidian resolves it."""
+    row, cards = {}, []
+    for n in nodes:
+        r = row[n["level"]] = row.get(n["level"], -1) + 1
+        card = {"id": n["id"].replace("/", "-"), "type": "file",
+                "file": by_id[n["id"]].path.relative_to(v.root).as_posix(),
+                "x": n["level"] * (CARD_W + GAP_X), "y": r * (CARD_H + GAP_Y),
+                "width": CARD_W, "height": CARD_H}
+        if n["key"]:
+            card["color"] = KEY_COLOR
+        cards.append(card)
+    links = [{"id": f"{e['from']}->{e['to']}".replace("/", "-"),
+              "fromNode": e["from"].replace("/", "-"), "fromSide": "right",
+              "toNode": e["to"].replace("/", "-"), "toSide": "left"} for e in edges]
+    return json.dumps({"nodes": cards, "edges": links}, indent=2, ensure_ascii=False) + "\n"
+
+
 def graph(args, v):
     """The prerequisite graph as JSON: every reading note as a node, one edge
     per `requires` entry running from the prerequisite to the note that needs
     it. `level` is the longest chain of prerequisites behind a note, so level 0
     can be read first and notes sharing a level are a choice. `--key` keeps only
     the key notes and everything they require, the shortest route that still
-    makes sense. Exits 1 if the edges loop or point nowhere; `check` says
+    makes sense. `--canvas FILE` writes an Obsidian canvas instead: a card per
+    note in a column per level, arrows running to the note that needs it, key
+    notes in green. Exits 1 if the edges loop or point nowhere; `check` says
     where."""
     notes = V.concepts(v)
     by_id = {n.id: n for n in notes}
@@ -256,6 +281,10 @@ def graph(args, v):
                       "key": f.get("key") is True,
                       "published": str(f.get("published") or "") or None,
                       v.group_by: V.listed(f, v.group_by)})
+    if args.canvas:
+        Path(args.canvas).write_text(canvas(v, nodes, edges, by_id), encoding="utf-8")
+        print(f"{args.canvas}: {len(nodes)} notes, {len(edges)} edges")
+        return
     text = json.dumps({"nodes": nodes, "edges": edges}, indent=2, ensure_ascii=False) + "\n"
     if args.write:
         Path(args.write).write_text(text, encoding="utf-8")

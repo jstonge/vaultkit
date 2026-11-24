@@ -73,7 +73,9 @@ def main(argv=None):
     p.add_argument("--key", action="store_true",
                    help="only key notes and what they require")
     p.add_argument("--write", metavar="FILE", default="",
-                   help="write to FILE instead of printing")
+                   help="write the JSON to FILE instead of printing")
+    p.add_argument("--canvas", metavar="FILE", default="",
+                   help="write an Obsidian canvas to FILE (path-from-root file cards)")
     p.set_defaults(fn=commands.graph)
 
     args = ap.parse_args(argv)

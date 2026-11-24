@@ -265,3 +265,22 @@ def test_graph_key_keeps_key_notes_and_their_prerequisites(vlt, capsys):
     g = json.loads(capsys.readouterr().out)
     assert [n["id"] for n in g["nodes"]] == ["reading/a", "reading/b"]  # c needs b, not the reverse
     assert g["edges"] == [{"from": "reading/a", "to": "reading/b"}]
+
+
+def test_graph_canvas_lays_levels_out_left_to_right(vlt, tmp_path):
+    import json
+    _three(vlt)
+    _requires(vlt, "b", "reading/a")
+    p = vlt.bundle / "reading/a.md"
+    p.write_text(p.read_text().replace("key:\n", "key: true\n", 1))
+    out = tmp_path / "c.canvas"
+    run(["graph", "--canvas", str(out)])
+    c = json.loads(out.read_text())
+    cards = {n["file"]: n for n in c["nodes"]}
+    assert set(cards) == {"kb/reading/a.md", "kb/reading/b.md", "kb/reading/c.md"}
+    assert cards["kb/reading/a.md"]["x"] < cards["kb/reading/b.md"]["x"]
+    assert cards["kb/reading/a.md"]["color"] == "4" and "color" not in cards["kb/reading/b.md"]
+    ids = {n["id"] for n in c["nodes"]}
+    assert len(ids) == 3
+    assert [(e["fromNode"], e["toNode"]) for e in c["edges"]] == [("reading-a", "reading-b")]
+    assert all(e["fromNode"] in ids and e["toNode"] in ids for e in c["edges"])
