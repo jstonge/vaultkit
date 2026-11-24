@@ -70,6 +70,8 @@ def main(argv=None):
 
     p = sub.add_parser("graph", help="the prerequisite graph as JSON",
                        description=commands.graph.__doc__)
+    p.add_argument("--key", action="store_true",
+                   help="only key notes and what they require")
     p.add_argument("--write", metavar="FILE", default="",
                    help="write to FILE instead of printing")
     p.set_defaults(fn=commands.graph)

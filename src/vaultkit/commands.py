@@ -214,8 +214,10 @@ def graph(args, v):
     """The prerequisite graph as JSON: every reading note as a node, one edge
     per `requires` entry running from the prerequisite to the note that needs
     it. `level` is the longest chain of prerequisites behind a note, so level 0
-    can be read first and notes sharing a level are a choice. Exits 1 if the
-    edges loop or point nowhere; `check` says where."""
+    can be read first and notes sharing a level are a choice. `--key` keeps only
+    the key notes and everything they require, the shortest route that still
+    makes sense. Exits 1 if the edges loop or point nowhere; `check` says
+    where."""
     notes = V.concepts(v)
     by_id = {n.id: n for n in notes}
     reqs = okf.prerequisites(notes)
@@ -236,6 +238,17 @@ def graph(args, v):
         return level[nid]
 
     ids = {n.id for n in V.notes_in(v, "reading")} | set(needs) | {e["from"] for e in edges}
+    if args.key:
+        keep, todo = set(), [i for i in ids if by_id[i].fields.get("key") is True]
+        while todo:
+            nid = todo.pop()
+            if nid not in keep:
+                keep.add(nid)
+                todo += needs.get(nid, ())
+        if not keep:
+            print("no notes have `key: true` yet", file=sys.stderr)
+        ids = keep
+        edges = [e for e in edges if e["from"] in keep and e["to"] in keep]
     nodes = []
     for nid in sorted(ids, key=lambda i: (depth(i), i)):
         f = by_id[nid].fields

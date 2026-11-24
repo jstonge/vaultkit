@@ -251,3 +251,17 @@ def test_graph_refuses_a_loop(vlt):
     _requires(vlt, "b", "reading/a")
     with pytest.raises(SystemExit):
         run(["graph"])
+
+
+def test_graph_key_keeps_key_notes_and_their_prerequisites(vlt, capsys):
+    import json
+    _three(vlt)
+    _requires(vlt, "c", "reading/b")
+    _requires(vlt, "b", "reading/a")
+    p = vlt.bundle / "reading/b.md"
+    p.write_text(p.read_text().replace("key:\n", "key: true\n", 1))
+    capsys.readouterr()
+    run(["graph", "--key"])
+    g = json.loads(capsys.readouterr().out)
+    assert [n["id"] for n in g["nodes"]] == ["reading/a", "reading/b"]  # c needs b, not the reverse
+    assert g["edges"] == [{"from": "reading/a", "to": "reading/b"}]
