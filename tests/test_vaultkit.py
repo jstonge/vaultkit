@@ -38,6 +38,8 @@ def test_init_makes_a_conformant_empty_bundle(vlt):
     assert (vlt.bundle / "index.md").read_text().startswith('---\nokf_version: "0.2"\n---')
     assert (vlt.root / ".claude/skills/vault-note/SKILL.md").exists()
     assert "--harness" in (vlt.root / ".claude/skills/vault-note/SKILL.md").read_text()
+    tl = (vlt.root / ".claude/skills/vault-timeline/SKILL.md").read_text()
+    assert tl.startswith("---\nname: vault-timeline") and "__" not in tl
     assert "__" not in (vlt.root / "vault.toml").read_text()
     conforms(vlt)
 
